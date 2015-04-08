@@ -43,10 +43,6 @@ class auth:
 			result = req['error']
 		raise web.seeother(result)
 
-class email:
-	def POST(self):
-		return 200
-		
 app = web.application(urls, globals())
 
 if __name__ == '__main__':
