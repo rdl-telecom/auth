@@ -18,7 +18,5 @@ class Scheduler (threading.Thread):
 			raise Exception
 
 	def run(self):
-		print 'hello!'
 		time.sleep(self.duration)
-		print 'slept'
 		self.auth.deny(self.ip)
