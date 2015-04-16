@@ -39,9 +39,11 @@ class auth:
 		try:
 			logger.info('Accepting user {0}'.format(ip))
 			scheduler = Scheduler(ip)
-		except Exception as e:
-			logger.error('Cannot authenticate user {0}. Cause "{1}"'.format(ip, e))
+		except AssertionError:
+			pass
+		except ValueError as e:
 			result = req['error']
+			logger.error('Cannot authenticate user {0}. Cause "{1}"'.format(ip, e))
 		raise web.seeother(result)
 
 app = web.application(urls, globals())

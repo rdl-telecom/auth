@@ -14,7 +14,7 @@ class Scheduler (threading.Thread):
 		is_authorized = ip in authorized
 		locker.release()
 		if is_authorized:
-			raise ValueError('Already authorized')
+			raise AssertionError('Already authorized')
 		threading.Thread.__init__(self)
 		self.duration = session_time
 		self.ip = ip
