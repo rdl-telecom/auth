@@ -2,6 +2,7 @@
 
 from config import session_time
 import web
+import urllib2
 import logging
 import logging.handlers
 import socket
@@ -26,8 +27,12 @@ urls = (
 class auth:
 	def GET(self):
 		req = web.input()
-		if not ( 'success' and 'error' in req ):
+		try:
+			success_url = urllib2.unquote(req['success'])
+			error_url = urllib2.unquote(req['error'])
+		except Exception as e:
 			return web.badrequest()
+		print success_url
 		xff = web.ctx.env.get('HTTP_X_FORWARDED_FOR', None)
 		if not xff:
 			xff = web.ctx.env.get('HTTP_REMOTE_ADDR', None)
@@ -35,14 +40,14 @@ class auth:
 				logger.error('Cannot determine user IP address')
 				return web.badrequest()
 		ip = xff.split(',')[0].strip()
-		result = req['success']
+		result = success_url
 		try:
 			logger.info('Accepting user {0}'.format(ip))
 			scheduler = Scheduler(ip)
 		except AssertionError:
 			pass
 		except ValueError as e:
-			result = req['error']
+			result = error_url
 			logger.error('Cannot authenticate user {0}. Cause "{1}"'.format(ip, e))
 		raise web.seeother(result)
 
