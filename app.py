@@ -56,6 +56,7 @@ class network_authentication_required(web.HTTPError):
 
 class index:
 	def GET(self):
+		logger.debug('Index called')
 		xff = web.ctx.env.get('HTTP_X_FORWARDED_FOR', None)
 		if not xff:
 			xff = web.ctx.env.get('HTTP_REMOTE_ADDR', None)
@@ -68,23 +69,35 @@ class index:
 		if not query_string:
 			query_string = web.ctx.env.get('HTTP_REFERER', 'http://yandex.ru')
 
+		logger.debug('User {0}: found out URL {1}'.format(ip, query_string))
+
 		if ip in scheduler._authorized:
+			logger.debug('User {0}: already authorized. Redirecting'.format(ip))
 			raise web.redirect(query_string)
 
 		redirect_url = '?'.join((redirect_base_url, urllib2.quote(query_string)))
+		logger.debug('User {0}: the new one. Returning 511 code'.format(ip))
 		raise network_authentication_required(redirect_url)
 
 class injection:
 	def GET(self):
+		logger.debug('Injection called')
 		web.header('Content-type', 'application/x-javascript; charset=utf-8')
 		web.header('Pragma', 'no-cache')
 		web.header('Expires', '0')
 		web.header('Cache-Control', 'no-cache,max-age=0,no-store')
-		ip = web.ctx.env.get('HTTP_X_REAL_IP', None)
+		xff = web.ctx.env.get('HTTP_X_FORWARDED_FOR', None)
+		if not xff:
+			xff = web.ctx.env.get('HTTP_REMOTE_ADDR', None)
+			if not xff:
+				logger.error('Cannot determine user IP address')
+				return web.badrequest()
+		ip = xff.split(',')[0].strip()
 		resp = ''
 		if ip:
 			client = mcache.get(ip)
 			if not client:
+				logger.debug('Showing ad to {0}'.format(ip))
 				mcache.set(ip, 'active', adv_time)
 				resp = mcache.get(injection_js)
 				if not resp:
@@ -92,11 +105,16 @@ class injection:
 					resp = f.read()
 					f.close()
 					mcache.set(injection_js, resp)
-		print resp
+			else:
+				logger.debug('Ad was already shown to user {0}'.format(ip))
+		else:
+			logger.error('No ip address')
+			logger.debug(str(web.ctx.env))
 		return resp
 
 class auth:
 	def GET(self):
+		logger.debug('Authentication called')
 		req = web.input()
 		if not ( 'success' and 'error' in req ):
 			return web.badrequest()
