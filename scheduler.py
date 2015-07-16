@@ -2,33 +2,45 @@
 
 from config import session_time
 import time
-import threading
-from auth_icomera import AuthIcomera
+from threading import Thread, Lock
+from auth_iptables import AuthIPTables
 
-locker = threading.Lock()
-authorized = []
+class IPList:
+	_list = []
+	_lock = Lock()
 
-class Scheduler (threading.Thread):
-	def __init__(self, ip):
-		locker.acquire()
-		is_authorized = ip in authorized
-		locker.release()
-		if is_authorized:
+	def add(self, ip):
+		self._lock.acquire()
+		self._list.append(ip)
+		self._lock.release()
+
+	def delete(self, ip):
+		self._lock.acquire()
+		self._list.remove(ip)
+		self._lock.release()
+	
+	def __contains__(self, ip):
+		return ip in self._list
+
+class Scheduler:
+	_authorized = IPList()
+
+	def __init__(self):
+		self.auth = AuthIPTables()
+
+	def authorize(self, ip):
+		if ip in self._authorized:
 			raise AssertionError('Already authorized')
-		threading.Thread.__init__(self)
-		self.duration = session_time
-		self.ip = ip
-		self.auth = AuthIcomera()
-		self.setDaemon(True)
-		if self.auth.allow(self.ip):
-			self.start()
-			authorized.append(self.ip)
+		mac = self.auth.allow(ip)
+		if mac:
+			task_thread = Thread(name=mac, target=self.task, args=(ip, mac))
+			task_thread.daemon = True
+			task_thread.start()
 		else:
 			raise ValueError('Authorization error')
 
-	def run(self):
-		time.sleep(self.duration)
-		self.auth.deny(self.ip)
-		locker.acquire()
-		authorized.remove(self.ip)
-		locker.release()
+	def task(self, ip, mac):
+		self._authorized.add(ip)
+		time.sleep(session_time)
+		self.auth.deny(mac)
+		self._authorized.delete(ip)
