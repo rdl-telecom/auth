@@ -4,17 +4,25 @@ import re
 
 value_re = re.compile(r'^.*=\s*([^\s\t]*)\s*$')
 
-config_file = '/srv/config'
-users_file = '/srv/users'
+config_file = '/auth/config'
+users_file = '/auth/users'
 
 mqtt_broker = '127.0.0.1'
 mqtt_topic = 'captive/command'
 
-multipliers = { 's' : 1,
-		'm' : 60,
-		'h' : 3600,
-		'd' : 86400
-	}
+time_multipliers = {
+	's' : 1,
+	'm' : 60,
+	'h' : 3600,
+	'd' : 86400
+}
+
+size_multipliers = {
+	'b' : 1,
+	'k' : 1024,
+	'm' : 1048576,
+	'g' : 1073741824
+}
 
 def get_config_value(param):
 	f = open(config_file, 'r')
@@ -33,14 +41,29 @@ def get_time(value ,default=0):
 		seconds = int(s_tm)
 	except ValueError:
 		tail = s_tm[-1].lower()
-		if tail in multipliers.keys():
-			seconds = int(s_tm[:-1]) * multipliers[tail]
+		if tail in time_multipliers.keys():
+			seconds = int(s_tm[:-1]) * time_multipliers[tail]
 		else:
 			seconds = default
 	return seconds
 
+def get_size(value, default=0):
+	s_sz = get_config_value(value)
+	try:
+		size = int(s_sz)
+	except ValueError:
+		tail = s_sz[-1].lower()
+		if tail in size_multipliers.keys():
+			size = int(s_sz[:-1]) * size_multipliers[tail]
+		else:
+			size = default
+	return size
+
 session_time = get_time('SESSION_TIME')
-adv_time = get_time('ADV_TIME')
+
+log_size = get_size('LOG_SIZE')
+log_rotates = int(get_config_value('LOG_ROTATES')) or 1
+
 auth_info = {
 	'host' : get_config_value('AUTH_HOST'),
 	'port' : int(get_config_value('AUTH_PORT')),

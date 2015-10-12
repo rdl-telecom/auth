@@ -1,19 +1,18 @@
 #!/usr/bin/env python
 
-from config import session_time, adv_time
+from config import session_time, log_size, log_rotates
 import web
 import logging
 import logging.handlers
 import socket
 import urllib2
 from scheduler import Scheduler
-import memcache
 
 redirect_base_url = 'http://aero.rdl.club/useragreement.html'
 
 log_file = '/tmp/auth.log'
-log_max_size = 1048576
-log_num_rotates = 1
+log_max_size = log_size
+log_num_rotates = log_rotates
 
 logger = logging.getLogger('user.auth')
 logger.setLevel(logging.DEBUG)
@@ -23,101 +22,16 @@ fmt = logging.Formatter('%(asctime)s %(name)-16s %(levelname)-8s %(message)s', d
 fh.setFormatter(fmt)
 logger.addHandler(fh)
 
-mcache = memcache.Client(['127.0.0.1:11211'])
 scheduler = Scheduler()
 
-injection_js = '/www-main/portal/assets/js/afrsasync.js'
-
 urls = (
-	'/', 'index',
-	'/auth.html?', 'auth',
-	'/assets/js/afrsasync.js', 'injection'
+	'/allow', 'auth',
 )
-
-class network_authentication_required(web.HTTPError):
-	def __init__(self, location):
-		status = "511 Network Authentication Required"
-		headers = {
-			'Content-Type' : 'text/html; charset=utf-8',
-			'Location' : location,
-			'Expires' : '-1',
-			'Pragma' : 'no-cache',
-			'Cache-Control' : 'no-cache,max-age=0,no-store'
-		}
-		data = '''<html>
-	<head>
-		<title>Network Authentication Required</title>
-		<meta http-equiv="refresh" content="0; url={0}">
-	</head>
-	<body>
-	</body>
-</html>'''.format(location)
-		web.HTTPError.__init__(self, status, headers, data)
-
-class index:
-	def GET(self):
-		logger.debug('Index called')
-		xff = web.ctx.env.get('HTTP_X_FORWARDED_FOR', None)
-		if not xff:
-			xff = web.ctx.env.get('HTTP_REMOTE_ADDR', None)
-			if not xff:
-				logger.error('Cannot determine user IP address')
-				return web.badrequest()
-		ip = xff.split(',')[0].strip()
-
-		query_string = web.ctx.env.get('QUERY_STRING', '')
-		if not query_string:
-			query_string = web.ctx.env.get('HTTP_REFERER', 'http://yandex.ru')
-
-		logger.debug('User {0}: found out URL {1}'.format(ip, query_string))
-
-		if ip in scheduler._authorized:
-			logger.debug('User {0}: already authorized. Redirecting'.format(ip))
-			raise web.redirect(query_string)
-
-		redirect_url = '?'.join((redirect_base_url, urllib2.quote(query_string)))
-		logger.debug('User {0}: the new one. Returning 511 code'.format(ip))
-		raise network_authentication_required(redirect_url)
-
-class injection:
-	def GET(self):
-		logger.debug('Injection called')
-		web.header('Content-type', 'application/x-javascript; charset=utf-8')
-		web.header('Pragma', 'no-cache')
-		web.header('Expires', '0')
-		web.header('Cache-Control', 'no-cache,max-age=0,no-store')
-		xff = web.ctx.env.get('HTTP_X_FORWARDED_FOR', None)
-		if not xff:
-			xff = web.ctx.env.get('HTTP_REMOTE_ADDR', None)
-			if not xff:
-				logger.error('Cannot determine user IP address')
-				return web.badrequest()
-		ip = xff.split(',')[0].strip()
-		resp = ''
-		if ip:
-			client = mcache.get(ip)
-			if not client:
-				logger.debug('Showing ad to {0}'.format(ip))
-				mcache.set(ip, 'active', adv_time)
-				resp = mcache.get(injection_js)
-				if not resp:
-					f = open(injection_js, 'r')
-					resp = f.read()
-					f.close()
-					mcache.set(injection_js, resp)
-			else:
-				logger.debug('Ad was already shown to user {0}'.format(ip))
-		else:
-			logger.error('No ip address')
-			logger.debug(str(web.ctx.env))
-		return resp
 
 class auth:
 	def GET(self):
 		logger.debug('Authentication called')
 		req = web.input()
-		if not ( 'success' and 'error' in req ):
-			return web.badrequest()
 		xff = web.ctx.env.get('HTTP_X_FORWARDED_FOR', None)
 		if not xff:
 			xff = web.ctx.env.get('HTTP_REMOTE_ADDR', None)
@@ -125,14 +39,14 @@ class auth:
 				logger.error('Cannot determine user IP address')
 				return web.badrequest()
 		ip = xff.split(',')[0].strip()
-		result = '/auth_ok.html?url=' + urllib2.unquote(req['success'])
+		result = '/success.html'
 		try:
 			logger.info('Accepting user {0}'.format(ip))
 			scheduler.authorize(ip)
 		except AssertionError:
 			pass
 		except ValueError as e:
-			result = urllib2.unquote(req['error'])
+			result = '/'
 			logger.error('Cannot authenticate user {0}. Cause "{1}"'.format(ip, e))
 		raise web.seeother(result)
 

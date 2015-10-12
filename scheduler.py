@@ -3,7 +3,7 @@
 from config import session_time
 import time
 from threading import Thread, Lock
-from auth_iptables import AuthIPTables
+from auth_icomera import AuthIcomera
 
 class IPList:
 	_list = []
@@ -26,7 +26,7 @@ class Scheduler:
 	_authorized = IPList()
 
 	def __init__(self):
-		self.auth = AuthIPTables()
+		self.auth = AuthIcomera()
 
 	def authorize(self, ip):
 		if ip in self._authorized:
