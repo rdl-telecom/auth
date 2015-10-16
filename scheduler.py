@@ -42,5 +42,5 @@ class Scheduler:
 	def task(self, ip, mac):
 		self._authorized.add(ip)
 		time.sleep(session_time)
-		self.auth.deny(mac)
+		self.auth.deny(ip)
 		self._authorized.delete(ip)
