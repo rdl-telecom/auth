@@ -19,7 +19,7 @@ class AuthIcomera:
 		self.connect()
 
 	def connected(self):
-		transport = self._ssh.get_transport() if self._ssh else None
+		transport = self.ssh.get_transport() if self.ssh else None
 		return transport and transport.is_active()
 
 	def connect(self):
