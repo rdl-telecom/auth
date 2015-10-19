@@ -18,7 +18,7 @@ class AuthIcomera:
 		self.ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 		self.connect()
 
-	def connected():
+	def connected(self):
 		transport = self._ssh.get_transport() if self._ssh else None
 		return transport and transport.is_active()
 
