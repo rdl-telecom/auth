@@ -31,16 +31,15 @@ class Scheduler:
 	def authorize(self, ip):
 		if ip in self._authorized:
 			raise AssertionError('Already authorized')
-		mac = self.auth.allow(ip)
-		if mac:
-			task_thread = Thread(name=mac, target=self.task, args=(ip, mac))
+		if self.auth.allow(ip):
+			task_thread = Thread(name=ip, target=self.task, args=(ip,))
 			task_thread.daemon = True
 			task_thread.start()
 		else:
 			raise ValueError('Authorization error')
 
-	def task(self, ip, mac):
+	def task(self, ip):
 		self._authorized.add(ip)
 		time.sleep(session_time)
-		self.auth.deny(ip)
 		self._authorized.delete(ip)
+		self.auth.deny(ip)
