@@ -8,7 +8,8 @@ import socket
 import urllib2
 from scheduler import Scheduler
 
-redirect_base_url = 'http://aero.rdl.club/useragreement.html'
+default_success_url = '/success.html'
+default_error_url = '/'
 
 log_file = '/tmp/auth.log'
 log_max_size = log_size
@@ -32,6 +33,12 @@ class auth:
 	def GET(self):
 		logger.debug('Authentication called')
 		req = web.input()
+		try:
+			success_url = urllib2.unquote(req['success'])
+			error_url = urllib2.unquote(req['error'])
+		except:
+			success_url = default_success_url
+			error_url = default_error_url
 		xff = web.ctx.env.get('HTTP_X_FORWARDED_FOR', None)
 		if not xff:
 			xff = web.ctx.env.get('HTTP_REMOTE_ADDR', None)
@@ -39,14 +46,14 @@ class auth:
 				logger.error('Cannot determine user IP address')
 				return web.badrequest()
 		ip = xff.split(',')[0].strip()
-		result = '/success.html'
+		result = success_url
 		try:
 			logger.info('Accepting user {0}'.format(ip))
 			scheduler.authorize(ip)
 		except AssertionError:
 			pass
 		except ValueError as e:
-			result = '/'
+			result = error_url
 			logger.error('Cannot authenticate user {0}. Cause "{1}"'.format(ip, e))
 		raise web.seeother(result)
 
