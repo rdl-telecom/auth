@@ -35,9 +35,11 @@ class auth:
 		req = web.input()
 		try:
 			success_url = urllib2.unquote(req['success'])
-			error_url = urllib2.unquote(req['error'])
 		except:
 			success_url = default_success_url
+		try:
+			error_url = urllib2.unquote(req['error'])
+		except:
 			error_url = default_error_url
 		xff = web.ctx.env.get('HTTP_X_FORWARDED_FOR', None)
 		if not xff:
